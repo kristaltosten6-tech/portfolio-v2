@@ -1154,7 +1154,8 @@ window.__serverEdits = null;
 window.__bootPromise = (async function(){
   let dj = null;
   try {
-    const r = await fetch('data.json', {cache:'default'});
+    /* 每次打开都读取当前发布的数据，避免 GitHub Pages 或浏览器沿用旧版本。 */
+    const r = await fetch('data.json?v=' + Date.now(), {cache:'no-store'});
     if (r.ok) {
       const j = await r.json();
       if (j && Array.isArray(j.items) && j.items.length) dj = j;
@@ -1216,10 +1217,19 @@ window.__bootPromise = (async function(){
   await (window.__bootPromise || Promise.resolve());
   const SERVER = !!window.__serverMode;
   const HAS_FILE = window.__serverEdits !== null && window.__serverEdits !== undefined;
+  const USE_LOCAL_STATE = !HAS_FILE;
   const EDIT_KEY = 'zzr_archive_edits_v1';
   let edits = {};
-  if (HAS_FILE) { try { Object.assign(edits, JSON.parse(JSON.stringify(window.__serverEdits))); } catch(e) {} }
-  try { Object.assign(edits, JSON.parse(localStorage.getItem(EDIT_KEY) || '{}')); } catch(e) {}
+  if (HAS_FILE) {
+    /* data.json 里的 items 已经是最终作品数据；历史 work.* 记录不能再次覆盖它。 */
+    try {
+      Object.entries(JSON.parse(JSON.stringify(window.__serverEdits))).forEach(([k,v])=>{
+        if (!k.startsWith('work.')) edits[k] = v;
+      });
+    } catch(e) {}
+  } else {
+    try { Object.assign(edits, JSON.parse(localStorage.getItem(EDIT_KEY) || '{}')); } catch(e) {}
+  }
   window.__edits = edits;
   const persistToDisk = async ()=>{
     if (!SERVER) return;
@@ -1231,7 +1241,10 @@ window.__bootPromise = (async function(){
     } catch(e) {}
   };
   window.__persistToDisk = persistToDisk;
-  const save = ()=>{ try { localStorage.setItem(EDIT_KEY, JSON.stringify(edits)); } catch(e) {} persistToDisk(); };
+  const save = ()=>{
+    if (USE_LOCAL_STATE) { try { localStorage.setItem(EDIT_KEY, JSON.stringify(edits)); } catch(e) {} }
+    persistToDisk();
+  };
   const uploadFile = async (file, dir, name)=>{
     const r = await fetch('/api/upload?dir=' + dir + '&name=' + encodeURIComponent(name), {method:'POST', body:file});
     const j = await r.json();
@@ -1246,7 +1259,7 @@ window.__bootPromise = (async function(){
   document.getElementById('ebHint').textContent = SERVER
     ? '编辑模式 · 点击虚线框直接修改 · 改动会直接写入网站文件夹（data.json 与 videos/），改完提交 GitHub 即可更新线上链接'
     : (HAS_FILE
-      ? '编辑模式 · 当前是在线预览（只读），改动只保存在这台浏览器 · 要更新网站请在本地改好后重新上传文件'
+      ? '编辑模式 · 当前是在线正式版本，内容以已发布文件为准 · 要更新网站请在本地改好后重新上传文件'
       : '编辑模式 · 点击虚线框直接修改 · 注意：当前未通过本地服务器打开，改动只保存在这台电脑的浏览器里');
 
   /* 载入时应用已保存的修改 */
@@ -1265,7 +1278,7 @@ window.__bootPromise = (async function(){
   /* 删除记录（内置作品） */
   const DEL_KEY = 'zzr_archive_deleted';
   let deleted = [];
-  try { deleted = JSON.parse(localStorage.getItem(DEL_KEY) || '[]'); } catch(e) {}
+  if (USE_LOCAL_STATE) { try { deleted = JSON.parse(localStorage.getItem(DEL_KEY) || '[]'); } catch(e) {} }
   const itemId = it => it.title + '|' + it.date + '|' + it.tag;
   for (let i = DATA.items.length - 1; i >= 0; i--) if (deleted.includes(itemId(DATA.items[i]))) DATA.items.splice(i, 1);
   document.querySelectorAll('[data-edit]').forEach(el=>{
@@ -1403,13 +1416,9 @@ window.__bootPromise = (async function(){
   /* ---- 添加新作品 ---- */
   const NEW_KEY = 'zzr_archive_newitems';
   let newItems = [];
-  if (SERVER) { newItems = DATA.items.filter(x => x.userAdded); }
+  if (SERVER || HAS_FILE) { newItems = DATA.items.filter(x => x.userAdded); }
   else {
     try { newItems = JSON.parse(localStorage.getItem(NEW_KEY) || '[]'); } catch(e) {}
-    if (HAS_FILE) {
-      const have = new Set(newItems.map(x => String(x.uid)));
-      DATA.items.filter(x => x.userAdded && !have.has(String(x.uid))).forEach(x => newItems.push(x));
-    }
   }
   function attachNewItems(){
     for (let i = DATA.items.length - 1; i >= 0; i--) if (DATA.items[i].userAdded) DATA.items.splice(i, 1);
