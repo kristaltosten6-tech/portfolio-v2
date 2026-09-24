@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>张一帆 — 纸上放映档案 · 作品集</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    纸上放映档案 — SCREENING ARCHIVE ON DRAFTING PAPER
@@ -26,9 +23,9 @@
   --orange:#f5720a;
   --purple:#7a3ff2;
   --ease:cubic-bezier(.16,.16,.1,1);
-  --serif:'Space Grotesk','Noto Serif SC',serif;
-  --sans:'Space Grotesk','Noto Sans SC',sans-serif;
-  --mono:'DM Mono','Noto Sans SC',monospace;
+  --serif:Arial,'Microsoft YaHei','PingFang SC','Noto Sans CJK SC',sans-serif;
+  --sans:Arial,'Microsoft YaHei','PingFang SC','Noto Sans CJK SC',sans-serif;
+  --mono:'Cascadia Mono','SFMono-Regular',Consolas,'Microsoft YaHei',monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
@@ -282,7 +279,7 @@ section{position:relative;z-index:2;padding:0 5vw 0 calc(5vw + 56px);}
 .credit-row{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-top:1px solid rgba(255,248,233,.18);font-size:12px;}
 .credit-row .k{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,248,233,.5);padding-top:2px;}
 .credit-row .v{text-align:right;font-weight:500;}
-.side-desc{font-family:'Noto Serif SC',serif;font-size:14px;line-height:2;font-weight:600;color:rgba(255,248,233,.92);white-space:pre-line;}
+.side-desc{font-family:var(--serif);font-size:14px;line-height:2;font-weight:600;color:rgba(255,248,233,.92);white-space:pre-line;}
 .side-desc .desc-head{font-family:var(--serif);font-weight:900;font-size:17px;color:var(--paper);display:block;margin-bottom:10px;}
 /* 片段条 */
 .reel-strip{display:flex;gap:10px;overflow-x:auto;padding:14px 0 4px;scrollbar-width:thin;}
@@ -301,7 +298,7 @@ section{position:relative;z-index:2;padding:0 5vw 0 calc(5vw + 56px);}
 /* ---------- 关于 ---------- */
 .about-wrap{padding-top:60px;}
 .about-intro{
-  font-family:'Noto Serif SC',serif;font-weight:600;
+  font-family:var(--serif);font-weight:600;
   font-size:clamp(17px,1.7vw,23px);line-height:2.1;max-width:900px;
 }
 .about-intro::first-letter{color:var(--accent);}
@@ -328,10 +325,10 @@ section{position:relative;z-index:2;padding:0 5vw 0 calc(5vw + 56px);}
   margin:80px auto 0;max-width:860px;text-align:center;position:relative;padding:40px 20px 0;
 }
 .about-quote .qmark{
-  font-family:'Noto Serif SC',serif;font-weight:900;font-size:110px;line-height:.6;
+  font-family:var(--serif);font-weight:900;font-size:110px;line-height:.6;
   color:var(--accent);display:block;
 }
-.about-quote p{font-family:'Noto Serif SC',serif;font-weight:900;font-size:clamp(20px,2.4vw,32px);line-height:1.9;margin-top:26px;}
+.about-quote p{font-family:var(--serif);font-weight:900;font-size:clamp(20px,2.4vw,32px);line-height:1.9;margin-top:26px;}
 .about-quote .qauthor{font-family:var(--mono);font-size:12px;letter-spacing:.24em;color:var(--ink-soft);margin-top:22px;text-transform:uppercase;}
 
 /* ---------- 联系 ---------- */
@@ -986,16 +983,6 @@ function bindRows(){
       pVideo.pause(); pVideo.style.display='none'; pVideo.removeAttribute('src'); pVideo.load();
       pLabel.textContent = `${String(gi+1).padStart(2,'0')} · ${it.title}`;
       preview.classList.add('show');
-      if(it.type==='video'){
-        clearTimeout(previewTimer);
-        previewTimer = setTimeout(()=>{
-          if(!preview.classList.contains('show')) return;
-          pVideo.src = M(it.url);
-          pVideo.style.display='block'; pImg.style.display='none';
-          pVideo.classList.add('sharp');
-          pVideo.play().catch(()=>{});
-        }, 350);
-      }
     });
     row.addEventListener('mouseleave', ()=>{
       window.setCursorPlay(false);
@@ -1090,7 +1077,7 @@ function loadMedia(i){
   reelStrip.querySelectorAll('.reel-thumb').forEach((b,bi)=>b.classList.toggle('active', bi===i));
   stopVideo();
   if(m.type==='video'){
-    screenFrame.innerHTML = `<video src="${M(m.url)}" playsinline autoplay style="width:100%;max-height:56vh;object-fit:contain;background:#000;"></video>`;
+    screenFrame.innerHTML = `<video src="${M(m.url)}" playsinline autoplay preload="metadata" style="width:100%;max-height:56vh;object-fit:contain;background:#000;"></video>`;
     curVideo = screenFrame.querySelector('video');
     $('#playerControls').style.display='flex';
     bindPlayer(curVideo);
@@ -1167,7 +1154,7 @@ window.__serverEdits = null;
 window.__bootPromise = (async function(){
   let dj = null;
   try {
-    const r = await fetch('data.json?_=' + Date.now(), {cache:'no-store'});
+    const r = await fetch('data.json', {cache:'default'});
     if (r.ok) {
       const j = await r.json();
       if (j && Array.isArray(j.items) && j.items.length) dj = j;
