@@ -195,6 +195,7 @@ section{position:relative;z-index:2;padding:0 5vw 0 calc(5vw + 56px);}
   transition:background .45s var(--ease),color .45s var(--ease),padding .45s var(--ease);
 }
 .work-row:hover{background:var(--rc,var(--ink));color:var(--paper);padding-left:18px;padding-right:18px;}
+.idx-cell{display:flex;flex-direction:column;align-items:flex-start;gap:8px;}
 .work-row .idx{font-family:var(--mono);font-size:13px;color:var(--rc,var(--accent));letter-spacing:.1em;}
 .work-row .title{font-family:var(--serif);font-weight:900;font-size:clamp(22px,2.6vw,40px);line-height:1.05;transition:transform .45s var(--ease);}
 .work-row:hover .title{transform:translateX(6px);}
@@ -205,6 +206,12 @@ section{position:relative;z-index:2;padding:0 5vw 0 calc(5vw + 56px);}
 .work-row:hover .tags{color:rgba(255,248,233,.6);}
 .work-row .go{font-family:var(--serif);font-size:22px;justify-self:end;transition:transform .45s var(--ease),color .45s var(--ease);}
 .work-row:hover .go{transform:translateX(4px) rotate(-45deg);color:var(--paper);}
+.order-controls{display:none;align-items:center;gap:4px;}
+body.editing .order-controls{display:flex;}
+.order-btn{width:28px;height:24px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:12px;line-height:1;transition:background .2s,color .2s,border-color .2s;}
+.order-btn:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:var(--paper);}
+.order-btn:disabled{opacity:.25;cursor:not-allowed;}
+.work-row:hover .order-btn:not(:hover){border-color:rgba(255,248,233,.55);}
 
 /* reveal */
 .rv{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease);}
@@ -396,6 +403,9 @@ body.editing .screen-frame{cursor:pointer;outline:1px dashed var(--accent);outli
 body.editing .media-tools{display:block;}
 .media-tools button{background:none;border:1px solid rgba(255,248,233,.4);color:var(--paper);font-family:var(--mono);font-size:10px;letter-spacing:.16em;padding:7px 14px;transition:background .25s,color .25s;}
 .media-tools button:hover{background:var(--paper);color:var(--ink);}
+.media-tools button:disabled{opacity:.3;cursor:not-allowed;}
+.media-tools button:disabled:hover{background:none;color:var(--paper);}
+.media-order-note{font-family:var(--mono);font-size:10px;letter-spacing:.1em;line-height:1.7;color:rgba(255,248,233,.55);margin-bottom:10px;}
 
 /* ---------- 添加作品 ---------- */
 .add-work-wrap{display:none;padding:18px 0 0;}
@@ -412,8 +422,8 @@ body.editing .add-work-wrap{display:block;}
 .adder-body{padding:22px 24px 26px;}
 .adder-row{margin-bottom:18px;}
 .adder-row label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
-.adder-row input[type=text],.adder-row textarea{width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:8px 2px;font-family:var(--sans);font-size:14px;color:var(--ink);outline:none;}
-.adder-row input[type=text]:focus,.adder-row textarea:focus{border-bottom-color:var(--accent);}
+.adder-row input[type=text],.adder-row textarea,.adder-row select{width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:8px 2px;font-family:var(--sans);font-size:14px;color:var(--ink);outline:none;}
+.adder-row input[type=text]:focus,.adder-row textarea:focus,.adder-row select:focus{border-bottom-color:var(--accent);}
 .adder-row textarea{min-height:110px;resize:vertical;border:1px solid var(--line-soft);padding:10px;line-height:1.8;}
 .aw-tags{display:flex;gap:20px;}
 .aw-tags label{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--ink);margin:0;text-transform:none;cursor:pointer;}
@@ -452,6 +462,7 @@ body.editing .add-work-wrap{display:block;}
   .hero-statement{font-size:16px;}
   .hero-meta{min-width:0;width:100%;}
   .work-row{grid-template-columns:40px 1fr 60px 30px;row-gap:6px;}
+  .order-controls{flex-direction:column;}
   .work-row .brief{grid-column:2/3;font-size:12px;}
   .work-row .year{grid-row:1;}
   .work-row .go{grid-row:1;}
@@ -929,7 +940,7 @@ function splitDesc(desc){
 /* ================= 作品索引 ================= */
 const listEl = $('#worksList');
 const preview = $('#previewFloat'), pImg = $('#previewImg'), pVideo = $('#previewVideo'), pLabel = $('#previewLabel');
-let previewTimer = null;
+let previewTimer = null, previewToken = 0;
 
 function renderFilters(){
   const tags = ['全部', ...new Set(DATA.items.flatMap(it=>it.tag.split(' ')))];
@@ -955,7 +966,13 @@ function renderList(filter='全部'){
     const gi = DATA.items.indexOf(it);
     const {head} = splitDesc(it.desc);
     return `<div class="work-row rv" data-gi="${gi}" style="--rc:${TAG_COLORS[it.tag.split(' ')[0]]||'var(--ink)'}">
-      <span class="idx">${String(gi+1).padStart(2,'0')}</span>
+      <span class="idx-cell">
+        <span class="idx">${String(gi+1).padStart(2,'0')}</span>
+        <span class="order-controls" aria-label="调整作品顺序">
+          <button type="button" class="order-btn" data-step="-1" title="上移一位" aria-label="上移一位"${gi===0?' disabled':''}>↑</button>
+          <button type="button" class="order-btn" data-step="1" title="下移一位" aria-label="下移一位"${gi===DATA.items.length-1?' disabled':''}>↓</button>
+        </span>
+      </span>
       <span class="title" data-edit="work.${it.uid||('b'+gi)}.title">${it.title}</span>
       <span class="brief" data-edit="work.${it.uid||('b'+gi)}.brief">${head}</span>
       <span class="year" data-edit="work.${it.uid||('b'+gi)}.date">${it.date}</span>
@@ -966,6 +983,9 @@ function renderList(filter='全部'){
   }).join('');
   requestAnimationFrame(()=> listEl.querySelectorAll('.rv').forEach(el=>el.classList.add('in')));
   bindRows();
+  if (document.body.classList.contains('editing')) {
+    listEl.querySelectorAll('[data-edit]').forEach(el=>{ el.contentEditable = 'true'; });
+  }
 }
 
 function bindRows(){
@@ -976,22 +996,45 @@ function bindRows(){
       if(document.body.classList.contains('editing')) return;
       window.setCursorPlay(true);
       if(matchMedia('(hover:none)').matches) return;
-      const poster = it.type==='image' ? it.url : posterOf(it.url);
+      const token = ++previewToken;
+      clearTimeout(previewTimer);
+      const primary = (it.media && it.media[0]) || {type:it.type,url:it.url};
+      const hoverVideo = (it.media || []).find(m=>m.type==='video');
+      const poster = primary.type==='image' ? primary.url : posterOf(primary.url);
       pImg.src = M(poster); pImg.style.display='block';
       pImg.classList.remove('sharp');
       pImg.onload = ()=> pImg.classList.add('sharp');
-      pVideo.pause(); pVideo.style.display='none'; pVideo.removeAttribute('src'); pVideo.load();
+      pVideo.pause(); pVideo.style.display='none'; pVideo.classList.remove('sharp'); pVideo.removeAttribute('src'); pVideo.load();
       pLabel.textContent = `${String(gi+1).padStart(2,'0')} · ${it.title}`;
       preview.classList.add('show');
+      if (hoverVideo) {
+        previewTimer = setTimeout(()=>{
+          if (token !== previewToken || !preview.classList.contains('show')) return;
+          pVideo.onloadedmetadata = ()=>{ if (token === previewToken) pVideo.currentTime = Math.min(.2, pVideo.duration || .2); };
+          pVideo.oncanplay = ()=>{
+            if (token !== previewToken) return;
+            pVideo.classList.add('sharp'); pVideo.style.display='block'; pImg.style.display='none';
+            pVideo.play().catch(()=>{ pVideo.style.display='none'; pImg.style.display='block'; });
+          };
+          pVideo.onerror = ()=>{ if (token === previewToken) { pVideo.style.display='none'; pImg.style.display='block'; } };
+          pVideo.src = M(hoverVideo.url); pVideo.load();
+        }, 180);
+      }
     });
     row.addEventListener('mouseleave', ()=>{
+      previewToken++;
       window.setCursorPlay(false);
       preview.classList.remove('show');
       clearTimeout(previewTimer);
-      pVideo.pause();
+      pVideo.pause(); pVideo.style.display='none'; pVideo.removeAttribute('src'); pVideo.load();
     });
     row.addEventListener('click', ()=>{ if(document.body.classList.contains('editing')) return; openTheater(gi); });
     row.querySelector('.media-btn').addEventListener('click', e=>{ e.stopPropagation(); openTheater(gi); });
+    row.querySelectorAll('.order-btn').forEach(btn=>btn.addEventListener('click', e=>{
+      e.preventDefault(); e.stopPropagation();
+      if (!document.body.classList.contains('editing') || btn.disabled) return;
+      if (window.__moveWork) window.__moveWork(gi, Number(btn.dataset.step));
+    }));
   });
 }
 
@@ -1014,16 +1057,18 @@ function bindRows(){
 const theater = $('#theater'), screenFrame = $('#screenFrame'), reelStrip = $('#reelStrip');
 let curItem = null, curMediaIdx = 0, curVideo = null, seeking = false;
 
-function openTheater(gi){
-  curItem = DATA.items[gi]; curMediaIdx = 0;
+function openTheater(gi, initialMedia=0){
+  curItem = DATA.items[gi]; curMediaIdx = Math.max(0, Math.min(initialMedia, curItem.media.length-1));
   $('#tNo').textContent = 'NO.' + String(gi+1).padStart(2,'0');
   $('#tTitle').textContent = curItem.title;
   const {head, body} = splitDesc(curItem.desc);
   $('#sideDesc').innerHTML = `<span class="desc-head">${head}</span>${body||''}`;
   $('#sideDesc').dataset.edit = 'work.'+(curItem.uid||('b'+gi))+'.desc';
   $('#sideDesc').contentEditable = document.body.classList.contains('editing') ? 'true' : 'false';
-  $('#mediaTools').innerHTML = '<button id="mediaRestore">恢复此作品默认媒体</button> <button id="workDelete">删除此作品</button>';
+  $('#mediaTools').innerHTML = '<div class="media-order-note">第一段媒体会作为作品封面和悬浮预览。选择下方片段后，可调整它的位置。</div><button id="mediaMovePrev">当前媒体前移</button> <button id="mediaMoveNext">当前媒体后移</button> <button id="mediaRestore">恢复此作品默认媒体</button> <button id="workDelete">删除此作品</button>';
   $('#workDelete').onclick = ()=> window.__deleteWork && window.__deleteWork(curItem);
+  $('#mediaMovePrev').onclick = ()=> window.__moveMedia && window.__moveMedia(curItem, curMediaIdx, -1);
+  $('#mediaMoveNext').onclick = ()=> window.__moveMedia && window.__moveMedia(curItem, curMediaIdx, 1);
   $('#mediaRestore').onclick = async ()=>{
     if (!confirm('恢复此作品的原始视频 / 图片？')) return;
     const idb = window.__idb;
@@ -1034,7 +1079,8 @@ function openTheater(gi){
       }
       curItem.media = JSON.parse(JSON.stringify(orig.media));
       curItem.url = orig.url; curItem.type = orig.type;
-      if (window.__persistToDisk) await window.__persistToDisk();
+      if (window.__saveMediaOrder) await window.__saveMediaOrder(curItem);
+      else if (window.__persistToDisk) await window.__persistToDisk();
     }
     if (idb && idb.db) {
       for (const m of curItem.media) {
@@ -1057,9 +1103,9 @@ function openTheater(gi){
   reelStrip.innerHTML = curItem.media.map((m,i)=>{
     const poster = m.type==='image' ? m.url : posterOf(m.url);
     const name = m.url.split('/').pop().replace(/\.[^.]+$/,'');
-    return `<button class="reel-thumb${i===0?' active':''}" data-i="${i}">
+    return `<button class="reel-thumb${i===curMediaIdx?' active':''}" data-i="${i}">
       <img src="${M(poster)}" alt="" loading="lazy" onload="this.classList.add('sharp')">
-      <div class="reel-cap">${String(i+1).padStart(2,'0')} · ${name}</div>
+      <div class="reel-cap">${String(i+1).padStart(2,'0')} · ${i===0?'封面 · ':''}${name}</div>
     </button>`;
   }).join('');
   reelStrip.querySelectorAll('.reel-thumb').forEach(b=>{
@@ -1068,13 +1114,16 @@ function openTheater(gi){
   theater.classList.add('open');
   document.body.style.overflow='hidden';
   preview.classList.remove('show');
-  loadMedia(0);
+  loadMedia(curMediaIdx);
 }
 
 function loadMedia(i){
   curMediaIdx = i;
   const m = curItem.media[i];
   reelStrip.querySelectorAll('.reel-thumb').forEach((b,bi)=>b.classList.toggle('active', bi===i));
+  const movePrev = $('#mediaMovePrev'), moveNext = $('#mediaMoveNext');
+  if (movePrev) movePrev.disabled = i === 0;
+  if (moveNext) moveNext.disabled = i === curItem.media.length - 1;
   stopVideo();
   if(m.type==='video'){
     screenFrame.innerHTML = `<video src="${M(m.url)}" playsinline autoplay preload="metadata" style="width:100%;max-height:56vh;object-fit:contain;background:#000;"></video>`;
@@ -1183,6 +1232,7 @@ window.__bootPromise = (async function(){
       <div class="adder-row"><label>标题 *</label><input type="text" id="awTitle" placeholder="作品名称"></div>
       <div class="adder-row"><label>一句话简介 *（显示在列表里）</label><input type="text" id="awBrief" placeholder="例如:赛博朋克城市场景短片"></div>
       <div class="adder-row"><label>年份 *</label><input type="text" id="awYear" placeholder="2026"></div>
+      <div class="adder-row"><label>插入位置</label><select id="awPosition"></select><div class="aw-note">保存后仍可在作品列表左侧使用 ↑ / ↓ 调整顺序</div></div>
       <div class="adder-row"><label>标签 *（可多选）</label>
         <div class="aw-tags">
           <label><input type="checkbox" class="aw-tag" value="3D">3D</label>
@@ -1204,7 +1254,7 @@ window.__bootPromise = (async function(){
 </div>
 
 <div class="edit-bar">
-  <span class="eb-hint" id="ebHint">编辑模式 · 点击虚线框内文字直接修改 · 自动保存</span>
+  <span class="eb-hint" id="ebHint">编辑模式 · 点击文字修改 · 使用作品编号下方的 ↑ / ↓ 调整顺序 · 自动保存</span>
   <button id="ebExport">导出备份 JSON</button>
   <button id="ebImport">导入备份</button>
   <button id="ebExportFull">导出完整备份(含视频)</button>
@@ -1415,6 +1465,8 @@ window.__bootPromise = (async function(){
 
   /* ---- 添加新作品 ---- */
   const NEW_KEY = 'zzr_archive_newitems';
+  const ORDER_KEY = 'zzr_archive_order_v1';
+  const MEDIA_ORDER_KEY = 'zzr_archive_media_order_v1';
   let newItems = [];
   if (SERVER || HAS_FILE) { newItems = DATA.items.filter(x => x.userAdded); }
   else {
@@ -1424,7 +1476,81 @@ window.__bootPromise = (async function(){
     for (let i = DATA.items.length - 1; i >= 0; i--) if (DATA.items[i].userAdded) DATA.items.splice(i, 1);
     newItems.forEach(it => DATA.items.push(it));
   }
+  const itemOrderKey = it => String(it.uid || itemId(it));
+  function applySavedOrder(){
+    if (!USE_LOCAL_STATE) return;
+    let order = [];
+    try { order = JSON.parse(localStorage.getItem(ORDER_KEY) || '[]'); } catch(e) {}
+    if (!Array.isArray(order) || !order.length) return;
+    const positions = new Map(order.map((key,i)=>[String(key), i]));
+    const original = new Map(DATA.items.map((it,i)=>[itemOrderKey(it), i]));
+    DATA.items.sort((a,b)=>{
+      const ak = itemOrderKey(a), bk = itemOrderKey(b);
+      const ai = positions.has(ak) ? positions.get(ak) : order.length + original.get(ak);
+      const bi = positions.has(bk) ? positions.get(bk) : order.length + original.get(bk);
+      return ai - bi;
+    });
+  }
+  async function persistOrder(){
+    newItems = DATA.items.filter(x => x.userAdded);
+    if (USE_LOCAL_STATE) {
+      localStorage.setItem(NEW_KEY, JSON.stringify(newItems));
+      localStorage.setItem(ORDER_KEY, JSON.stringify(DATA.items.map(itemOrderKey)));
+    }
+    await persistToDisk();
+  }
+  const buildMediaOrder = ()=>{
+    const out = {};
+    DATA.items.forEach(it=>{ out[itemOrderKey(it)] = (it.media || []).map(m=>m.url); });
+    return out;
+  };
+  function applySavedMediaOrder(){
+    if (!USE_LOCAL_STATE) return;
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(MEDIA_ORDER_KEY) || '{}'); } catch(e) {}
+    DATA.items.forEach(it=>{
+      const order = saved[itemOrderKey(it)];
+      if (!Array.isArray(order) || !Array.isArray(it.media) || !it.media.length) return;
+      const byUrl = new Map(it.media.map(m=>[String(m.url),m]));
+      const arranged = order.map(url=>byUrl.get(String(url))).filter(Boolean);
+      const used = new Set(arranged.map(m=>String(m.url)));
+      it.media.forEach(m=>{ if (!used.has(String(m.url))) arranged.push(m); });
+      if (arranged.length) {
+        it.media = arranged; it.url = arranged[0].url; it.type = arranged[0].type;
+      }
+    });
+  }
+  async function persistMediaOrder(){
+    DATA.items.forEach(it=>{
+      if (Array.isArray(it.media) && it.media[0]) { it.url = it.media[0].url; it.type = it.media[0].type; }
+    });
+    if (USE_LOCAL_STATE) localStorage.setItem(MEDIA_ORDER_KEY, JSON.stringify(buildMediaOrder()));
+    await persistOrder();
+  }
+  window.__saveMediaOrder = async ()=>{ await persistMediaOrder(); renderList(window.__curFilter || '全部'); };
+  window.__moveMedia = async (item, from, step)=>{
+    if (!item || !Array.isArray(item.media)) return;
+    const to = from + step;
+    if (from < 0 || to < 0 || from >= item.media.length || to >= item.media.length) return;
+    [item.media[from], item.media[to]] = [item.media[to], item.media[from]];
+    item.url = item.media[0].url; item.type = item.media[0].type;
+    await persistMediaOrder();
+    renderList(window.__curFilter || '全部');
+    openTheater(DATA.items.indexOf(item), to);
+  };
+  window.__moveWork = async (from, step)=>{
+    if ((window.__curFilter || '全部') !== '全部') {
+      alert('调整顺序时请先选择“全部”分类'); return;
+    }
+    const to = from + step;
+    if (from < 0 || to < 0 || from >= DATA.items.length || to >= DATA.items.length) return;
+    [DATA.items[from], DATA.items[to]] = [DATA.items[to], DATA.items[from]];
+    renderList('全部');
+    await persistOrder();
+  };
   attachNewItems();
+  applySavedOrder();
+  applySavedMediaOrder();
   renderFilters(); renderList();
 
   const adder = document.getElementById('adder');
@@ -1435,6 +1561,9 @@ window.__bootPromise = (async function(){
     document.getElementById('awFull').value = '';
     document.getElementById('awFiles').value = '';
     document.querySelectorAll('.aw-tag').forEach(c => c.checked = false);
+    const pos = document.getElementById('awPosition');
+    pos.innerHTML = DATA.items.map((it,i)=>`<option value="${i}">第 ${i+1} 位 · 插入到「${it.title}」之前</option>`).join('')
+      + `<option value="${DATA.items.length}" selected>第 ${DATA.items.length+1} 位 · 放在最后</option>`;
     adder.classList.add('open');
   }
   function closeAdder(){ adder.classList.remove('open'); }
@@ -1483,10 +1612,11 @@ window.__bootPromise = (async function(){
     }
     const item = { uid: id, type: media[0].type, title, desc: brief + (full ? '\n' + full : ''),
                    date: year, tag: tags.join(' '), url: media[0].url, media, userAdded: true };
-    newItems.push(item);
-    if (!SERVER) localStorage.setItem(NEW_KEY, JSON.stringify(newItems));
-    attachNewItems(); renderFilters(); renderList();
-    persistToDisk();
+    const requestedPosition = Number(document.getElementById('awPosition').value);
+    const insertAt = Number.isInteger(requestedPosition) ? Math.max(0, Math.min(requestedPosition, DATA.items.length)) : DATA.items.length;
+    DATA.items.splice(insertAt, 0, item);
+    await persistOrder();
+    renderFilters(); renderList();
     closeAdder();
     alert('✅ 新作品已添加');
   });
@@ -1510,14 +1640,14 @@ window.__bootPromise = (async function(){
       deleted.push(itemId(item));
       if (!SERVER) localStorage.setItem(DEL_KEY, JSON.stringify(deleted));
     }
-    persistToDisk();
+    await persistOrder();
     closeTheater();
     renderFilters(); renderList();
   };
 
   /* 导出 / 重置 */
   document.getElementById('ebExport').addEventListener('click', ()=>{
-    const bk = { version:1, exportedAt:new Date().toISOString(), edits, newItems, deleted };
+    const bk = { version:3, exportedAt:new Date().toISOString(), edits, newItems, deleted, order:DATA.items.map(itemOrderKey), mediaOrder:buildMediaOrder() };
     const blob = new Blob([JSON.stringify(bk, null, 2)], {type:'application/json'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1530,6 +1660,8 @@ window.__bootPromise = (async function(){
       localStorage.removeItem(EDIT_KEY);
       localStorage.removeItem(NEW_KEY);
       localStorage.removeItem(DEL_KEY);
+      localStorage.removeItem(ORDER_KEY);
+      localStorage.removeItem(MEDIA_ORDER_KEY);
       if (SERVER) {
         Object.keys(window.__origSite).forEach(k=>{ DATA[k] = window.__origSite[k]; });
         DATA.items = Object.keys(window.__origItems).sort().map(k=> JSON.parse(JSON.stringify(window.__origItems[k])));
@@ -1553,6 +1685,8 @@ window.__bootPromise = (async function(){
         if (bk.edits) localStorage.setItem(EDIT_KEY, JSON.stringify(bk.edits));
         if (bk.newItems) localStorage.setItem(NEW_KEY, JSON.stringify(bk.newItems));
         if (bk.deleted) localStorage.setItem(DEL_KEY, JSON.stringify(bk.deleted));
+        if (bk.order) localStorage.setItem(ORDER_KEY, JSON.stringify(bk.order));
+        if (bk.mediaOrder) localStorage.setItem(MEDIA_ORDER_KEY, JSON.stringify(bk.mediaOrder));
         if (SERVER) {
           if (bk.edits) Object.assign(edits, bk.edits);
           if (Array.isArray(bk.newItems)) bk.newItems.forEach(it=>{ if (!DATA.items.some(x=>String(x.uid)===String(it.uid))) DATA.items.push(it); });
@@ -1716,6 +1850,8 @@ window.__bootPromise = (async function(){
         }
         localStorage.setItem(EDIT_KEY, JSON.stringify(cur));
         localStorage.setItem(NEW_KEY, JSON.stringify(dj.items.filter(x => x.userAdded)));
+        localStorage.setItem(ORDER_KEY, JSON.stringify(dj.items.map(itemOrderKey)));
+        localStorage.setItem(MEDIA_ORDER_KEY, JSON.stringify(Object.fromEntries(dj.items.map(it=>[itemOrderKey(it),(it.media||[]).map(m=>m.url)]))));
         const present = new Set(dj.items.map(x => String(x.uid)));
         localStorage.setItem(DEL_KEY, JSON.stringify(Object.keys(window.__origItems || {}).filter(u => !present.has(u)).map(u => itemId(window.__origItems[u]))));
         alert('✅ 完整备份已导入（当前为本机模式，内容保存在此浏览器），页面即将刷新');
