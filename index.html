@@ -893,6 +893,11 @@ function posterOf(url){
   const base = url.split('/').pop().replace(/\.[^.]+$/,'');
   return './posters/' + base + '.webp';
 }
+function hoverPreviewOf(url){
+  const value = String(url || '');
+  if (/\/(media_\d+)\.mp4$/i.test(value)) return './previews/' + RegExp.$1 + '.mp4';
+  return M(url);
+}
 function fmt(t){
   if(!isFinite(t)) return '00:00';
   const m = Math.floor(t/60), s = Math.floor(t%60);
@@ -1017,7 +1022,7 @@ function bindRows(){
             pVideo.play().catch(()=>{ pVideo.style.display='none'; pImg.style.display='block'; });
           };
           pVideo.onerror = ()=>{ if (token === previewToken) { pVideo.style.display='none'; pImg.style.display='block'; } };
-          pVideo.src = M(hoverVideo.url); pVideo.load();
+          pVideo.src = hoverPreviewOf(hoverVideo.url); pVideo.load();
         }, 180);
       }
     });
@@ -1203,8 +1208,8 @@ window.__serverEdits = null;
 window.__bootPromise = (async function(){
   let dj = null;
   try {
-    /* 每次打开都读取当前发布的数据，避免 GitHub Pages 或浏览器沿用旧版本。 */
-    const r = await fetch('data.json?v=' + Date.now(), {cache:'no-store'});
+    /* 发布版本号变化时更新缓存；同一版本重复访问可直接复用缓存。 */
+    const r = await fetch('data.json?v=20260930a', {cache:'default'});
     if (r.ok) {
       const j = await r.json();
       if (j && Array.isArray(j.items) && j.items.length) dj = j;
