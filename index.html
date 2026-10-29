@@ -1209,7 +1209,7 @@ window.__bootPromise = (async function(){
   let dj = null;
   try {
     /* 发布版本号变化时更新缓存；同一版本重复访问可直接复用缓存。 */
-    const r = await fetch('data.json?v=20260930a', {cache:'default'});
+    const r = await fetch('data.json?v=20261029a', {cache:'default'});
     if (r.ok) {
       const j = await r.json();
       if (j && Array.isArray(j.items) && j.items.length) dj = j;
